@@ -1,20 +1,152 @@
 import javafx.application.Application
+import javafx.application.Platform
+import javafx.collections.FXCollections
 import javafx.geometry.Insets
 import javafx.scene.Scene
 import javafx.scene.control.*
+import javafx.scene.control.Alert.AlertType
 import javafx.scene.image.Image
 import javafx.scene.image.ImageView
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import java.awt.BorderLayout
 import java.io.File
-import java.nio.file.Files
+import java.io.FileInputStream
+import java.io.InputStream
+import java.nio.charset.Charset
 
 
 class Main : Application()  {
+    val home = "${System.getProperty("user.dir")}/test/"
+    var curdir = home
+
     private fun showHiddenFiles() {
 
+    }
+    private fun New() {
+
+    }
+    private fun addListenersToTree(tree:ListView<String>, layout: BorderPane) {
+        tree.getSelectionModel().selectedItemProperty().addListener{ ov,  old_val,  new_val ->
+            val selectedItem = tree.getSelectionModel().getSelectedItem();
+            val index = tree.getSelectionModel().getSelectedIndex();
+            if (selectedItem.endsWith(".txt") ||  selectedItem.endsWith(".md")) {
+                println(selectedItem + ": is a file")
+                val file = File(curdir + selectedItem)
+                val path = curdir + selectedItem
+                val absolutePathTextLabel = Label(path)
+                layout.bottom = absolutePathTextLabel
+                println(path)
+                var content:String = file.readText()
+                val label = Label(content)
+                layout.center = label
+            }
+            else if  ( selectedItem.endsWith(".png") || selectedItem.endsWith(".jpg") || selectedItem.endsWith(".bmp")) {
+                println(selectedItem + ": is a picture")
+                val file = File(curdir + selectedItem)
+                val path = curdir + selectedItem
+                val absoluteImagePathLabel = Label(path)
+                layout.bottom = absoluteImagePathLabel
+                println(path)
+                val stream: InputStream = FileInputStream(path)
+                val image = Image(stream)
+                val imageView = ImageView()
+                imageView.image = image
+                imageView.x = 10.0
+                imageView.y = 10.0
+                imageView.fitWidth = 200.0
+                imageView.isPreserveRatio = true
+                layout.center = imageView
+            }else {
+                println(selectedItem + ": is a directory")
+                val file = File(curdir + selectedItem)
+                val path = curdir + selectedItem
+                val absoluteImagePathLabel = Label(path)
+                println(path)
+                val label = Label()
+                layout.center = label
+                layout.bottom = absoluteImagePathLabel
+            }
+        }
+
+    }
+    private fun Move() {
+        val td = TextInputDialog()
+        td.title = "Move to a new directory"
+        td.headerText = "Where do you want to move this file to?"
+        td.showAndWait()
+// the app will block here until the user enters a value
+        val value:String = td.editor.text
+    }
+    private fun Home(home:String, layout: BorderPane):ListView<String> {
+        var tree = ListView<String>()
+        val f = File(home)
+        val arr =   FXCollections.observableArrayList ((f.list()).sorted());
+        //if directory exists,then
+        if(f.exists())
+        {
+            var absolutePathLabel = Label(f.absolutePath)
+            layout.bottom = absolutePathLabel
+
+            for (file in arr) {
+                val f1 = File(file)
+                if (file.startsWith('.')) {
+                    continue;
+                }
+                if (file.endsWith(".txt") ||  file.endsWith(".png") || file.endsWith(".jpg") ||  file.endsWith(".md") ||  f1.endsWith(".bmp")) {
+                    tree.items.add(file)
+                    println(file + ": is a file")
+                } else {
+                    tree.items.add(file + '/')
+                    println(file + ": is a directory")
+                }
+            }
+        }
+        addListenersToTree(tree, layout)
+        curdir = home
+        return tree;
+    }
+    private fun Previous() {
+
+    }
+    private fun Next() {
+
+    }
+    private fun Delete(file:File) {
+        val alert = Alert(AlertType.CONFIRMATION)
+        alert.title = "Deletion Confirmation"
+        alert.headerText = "Are you sure you would like to delete this file?"
+
+        val result = alert.showAndWait()
+        if (result.get() == ButtonType.OK) {
+            val value = file.delete();
+            if(value) {
+                println("The File is deleted.");
+            }
+            else {
+                println("The File is not deleted.");
+            }
+        } else {
+            // ... user chose CANCEL or closed the dialog
+        }
+    }
+    private fun Rename(file:File) {
+        val td = TextInputDialog()
+        td.title = "Title"
+        td.headerText = "Enter new value:"
+        td.showAndWait()
+        // the app will block here until the user enters a value
+        val result:String = td.editor.text
+        val f = File(result);
+        file.renameTo(f);
+    }
+    private fun Quit() {
+        Platform.exit()
     }
 
     override fun start(stage: Stage) {
@@ -28,7 +160,20 @@ class Main : Application()  {
         //FILE
         val fileMenu = Menu("File")
         val fileNew = MenuItem("New")
+        fileNew.accelerator = KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN)
+        val fileQuit = MenuItem("Quit")
+        fileQuit.accelerator = KeyCodeCombination(KeyCode.Q, KeyCombination.CONTROL_DOWN)
         fileMenu.items.add(fileNew)
+        fileMenu.items.add(fileQuit)
+        // handle default user action aka press
+        fileNew.setOnAction { event ->
+            New()
+            println("New pressed")
+        }
+        fileQuit.setOnAction { event ->
+            Quit()
+            println("Quit pressed")
+        }
 
         //ACTIONS
         val actionsMenu = Menu("Actions")
@@ -36,13 +181,36 @@ class Main : Application()  {
         val delete = MenuItem("Delete")
         actionsMenu.items.add(move)
         actionsMenu.items.add(delete)
+        delete.accelerator = KeyCodeCombination(KeyCode.D, KeyCombination.CONTROL_DOWN)
+        // handle default user action aka press
+        move.setOnAction { event ->
+            Move()
+            println("Move pressed")
+        }
+        // handle default user action aka press
+        delete.setOnAction { event ->
+            //Delete()
+            println("Delete pressed")
+        }
 
         //VIEW
         val viewMenu = Menu("View")
         val prev = MenuItem("Previous")
+        prev.accelerator = KeyCodeCombination(KeyCode.LEFT, KeyCombination.CONTROL_DOWN)
         val next = MenuItem("Next")
+        next.accelerator = KeyCodeCombination(KeyCode.RIGHT, KeyCombination.CONTROL_DOWN)
         viewMenu.items.add(prev)
         viewMenu.items.add(next)
+        // handle default user action aka press
+        prev.setOnAction { event ->
+            Previous()
+            println("Previous pressed")
+        }
+        // handle default user action aka press
+        next.setOnAction { event ->
+            Next()
+            println("Next pressed")
+        }
 
         //OPTIONS
         val optionsMenu = Menu("Options")
@@ -72,30 +240,49 @@ class Main : Application()  {
         homeImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         homeImageView.isPreserveRatio = true
         homeButton.setMaxWidth(Double.MAX_VALUE)
+        // handle default user action aka press
+
 
         val prevImageView = ImageView((Image("previousicon.png")))
         prevButton.graphic = (prevImageView)
         prevImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         prevImageView.isPreserveRatio = true
         prevButton.setMaxWidth(Double.MAX_VALUE)
+        // handle default user action aka press
+        prevButton.setOnAction { event ->
+            Previous()
+            println("Previous pressed")
+        }
 
         val nextImageView = ImageView((Image("nexticon.png")))
         nextButton.graphic = (nextImageView)
         nextImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         nextImageView.isPreserveRatio = true
         nextButton.setMaxWidth(Double.MAX_VALUE)
+        nextButton.setOnAction { event ->
+            Next()
+            println("New pressed")
+        }
 
         val deleteImageView = ImageView((Image("deleteicon.png")))
         deleteButton.graphic = (deleteImageView)
         deleteImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         deleteImageView.isPreserveRatio = true
         deleteButton.setMaxWidth(Double.MAX_VALUE)
+        deleteButton.setOnAction { event ->
+           // Delete()
+            println("New pressed")
+        }
 
         val renameImageView = ImageView((Image("renameicon.png")))
         renameButton.graphic = (renameImageView)
         renameImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         renameImageView.isPreserveRatio = true
         renameButton.setMaxWidth(Double.MAX_VALUE)
+        renameButton.setOnAction { event ->
+            //Rename()
+            println("New pressed")
+        }
 
         val hbox = HBox()
         hbox.children.addAll(homeButton, prevButton, nextButton, deleteButton, renameButton)
@@ -105,47 +292,21 @@ class Main : Application()  {
         val vbox = VBox()
         vbox.children.addAll(menuBar,hbox)
 
-        // handle default user action aka press
-        fileNew.setOnAction { event ->
-            println("New pressed")
-        }
-
+        /*FILES */
         // left: tree
-        val f = File("${System.getProperty("user.dir")}/test/",)
-        val tree = ListView<String>()
-        //if directory exists,then
-        if(f.exists())
-        {
-            //get the contents into arr[]
-            //now arr[i] represent either a File or Directory
-            val arr = (f.list()).sorted();
+        var tree:ListView<String>;
+        tree = Home(home, layout )
 
-            //displaying the entries
-            for (file in arr) {
-                //create File object with the entry and test
-                //if it is a file or directory
-                val f1 = File(file)
-                if (file.startsWith('.')) {
-                    continue;
-                }
-                //tree.items.add(file)
-                if (f1.isFile)
-                    tree.items.add(file)
-                    println(file + ": is a file")
-                if (f1.isDirectory)
-                    tree.items.add(file + '/')
-                    println(file + ": is a directory")
-            }
-        }
-
-        // handle mouse clicked action
-        tree.setOnMouseClicked { event ->
-            println("Pressed ${event.button}")
+        homeButton.setOnAction { event ->
+            tree= Home(home,layout)
+            println("Home pressed")
         }
 
         // build the scene graph
         layout.top = vbox
+        //layout.center = label
         layout.left = tree
+        //layout.bottom = absolutepath
 
         // create and show the scene
         val scene = Scene(layout)
