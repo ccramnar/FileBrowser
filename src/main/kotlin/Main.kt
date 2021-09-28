@@ -18,6 +18,7 @@ import java.awt.BorderLayout
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
+import java.lang.NullPointerException
 import java.nio.charset.Charset
 
 
@@ -55,6 +56,7 @@ class Main : Application()  {
                 println(path)
                 val stream: InputStream = FileInputStream(path)
                 val image = Image(stream)
+                stream.close()
                 val imageView = ImageView()
                 imageView.image = image
                 imageView.x = 10.0
@@ -109,31 +111,152 @@ class Main : Application()  {
         }
         addListenersToTree(tree, layout)
         curdir = home
+        layout.left = tree
         return tree;
     }
-    private fun Previous() {
+    private fun Previous(oldTree:ListView<String>, layout: BorderPane):ListView<String> {
+        val selectedItem = oldTree.getFocusModel().getFocusedItem()
+        println(selectedItem)
+        var tree = ListView<String>()
+        println("prevcurdir: " + curdir)
+            curdir = curdir.trimEnd('/' )
+        curdir = curdir.replaceAfterLast("/", "" )
+        println("path1 " + curdir)
+            println("path " + curdir)
+            val f = File(curdir)
+            val arr = FXCollections.observableArrayList((f.list()).sorted());
+            //if directory exists,then
+            if (f.exists()) {
+                var absolutePathLabel = Label(curdir)
+                layout.bottom = absolutePathLabel
 
+                for (file in arr) {
+                    val f1 = File(file)
+                    if (file.startsWith('.')) {
+                        continue;
+                    }
+                    if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || f1.endsWith(
+                            ".bmp"
+                        )
+                    ) {
+                        tree.items.add(file)
+                        println(file + ": is a file")
+                    } else {
+                        tree.items.add(file + '/')
+                        println(file + ": is a directory")
+                    }
+                }
+                addListenersToTree(tree, layout)
+            }
+        layout.left = tree
+        return tree;
     }
-    private fun Next() {
 
+    private fun loadDirectory( layout: BorderPane):ListView<String>{
+        var tree = ListView<String>()
+                val f = File(curdir)
+                val arr = FXCollections.observableArrayList((f.list()).sorted());
+                //if directory exists,then
+                if (f.exists()) {
+                    var absolutePathLabel = Label(curdir)
+                    layout.bottom = absolutePathLabel
+
+                    for (file in arr) {
+                        val f1 = File(file)
+                        if (file.startsWith('.')) {
+                            continue;
+                        }
+                        if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || f1.endsWith(
+                                ".bmp"
+                            )
+                        ) {
+                            tree.items.add(file)
+                            println(file + ": is a file")
+                        } else {
+                            tree.items.add(file + '/')
+                            println(file + ": is a directory")
+                        }
+                    }
+                    addListenersToTree(tree, layout)
+                }
+        layout.left = tree
+        return tree;
     }
-    private fun Delete(file:File) {
+
+    private fun Next(oldTree:ListView<String>, layout: BorderPane):ListView<String> {
+            val selectedItem = oldTree.getFocusModel().getFocusedItem()
+            println(selectedItem)
+            var tree = ListView<String>()
+            if (selectedItem.endsWith('/')) {
+                curdir = curdir + selectedItem
+                println("path " + curdir)
+                val f = File(curdir)
+                val arr = FXCollections.observableArrayList((f.list()).sorted());
+                //if directory exists,then
+                if (f.exists()) {
+                    var absolutePathLabel = Label(curdir)
+                    layout.bottom = absolutePathLabel
+
+                    for (file in arr) {
+                        val f1 = File(file)
+                        if (file.startsWith('.')) {
+                            continue;
+                        }
+                        if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || f1.endsWith(
+                                ".bmp"
+                            )
+                        ) {
+                            tree.items.add(file)
+                            println(file + ": is a file")
+                        } else {
+                            tree.items.add(file + '/')
+                            println(file + ": is a directory")
+                        }
+                    }
+                    addListenersToTree(tree, layout)
+                }
+            }else {
+                throw Exception("This is not a directory")
+            }
+        layout.left = tree
+        return tree;
+    }
+    private fun Delete(oldTree: ListView<String>, layout: BorderPane):ListView<String> {
         val alert = Alert(AlertType.CONFIRMATION)
         alert.title = "Deletion Confirmation"
         alert.headerText = "Are you sure you would like to delete this file?"
 
         val result = alert.showAndWait()
+        var tree = ListView<String>()
         if (result.get() == ButtonType.OK) {
-            val value = file.delete();
-            if(value) {
-                println("The File is deleted.");
-            }
-            else {
-                println("The File is not deleted.");
+            val selectedItem = oldTree.getFocusModel().getFocusedItem()
+            if (selectedItem.endsWith('/')) {
+                val file = File(curdir + selectedItem)
+                println("path of directory to delete: " + curdir + selectedItem)
+                val value = file.deleteRecursively();
+                if (value) {
+                    tree = loadDirectory(layout)
+                    println("The Directory is deleted.");
+                    layout.center = Label()
+                } else {
+                    println("The Directory is not deleted.");
+                }
+            } else {
+                val file = File(curdir + selectedItem)
+                println("path of file to delete: " + curdir + selectedItem)
+                val value = file.delete();
+                if (value) {
+                    tree = loadDirectory(layout)
+                    println("The File is deleted.");
+                    layout.center = Label()
+                } else {
+                    println("The File is not deleted.");
+                }
             }
         } else {
             // ... user chose CANCEL or closed the dialog
         }
+        return tree
     }
     private fun Rename(file:File) {
         val td = TextInputDialog()
@@ -187,11 +310,6 @@ class Main : Application()  {
             Move()
             println("Move pressed")
         }
-        // handle default user action aka press
-        delete.setOnAction { event ->
-            //Delete()
-            println("Delete pressed")
-        }
 
         //VIEW
         val viewMenu = Menu("View")
@@ -201,16 +319,6 @@ class Main : Application()  {
         next.accelerator = KeyCodeCombination(KeyCode.RIGHT, KeyCombination.CONTROL_DOWN)
         viewMenu.items.add(prev)
         viewMenu.items.add(next)
-        // handle default user action aka press
-        prev.setOnAction { event ->
-            Previous()
-            println("Previous pressed")
-        }
-        // handle default user action aka press
-        next.setOnAction { event ->
-            Next()
-            println("Next pressed")
-        }
 
         //OPTIONS
         val optionsMenu = Menu("Options")
@@ -248,31 +356,18 @@ class Main : Application()  {
         prevImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         prevImageView.isPreserveRatio = true
         prevButton.setMaxWidth(Double.MAX_VALUE)
-        // handle default user action aka press
-        prevButton.setOnAction { event ->
-            Previous()
-            println("Previous pressed")
-        }
 
         val nextImageView = ImageView((Image("nexticon.png")))
         nextButton.graphic = (nextImageView)
         nextImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         nextImageView.isPreserveRatio = true
         nextButton.setMaxWidth(Double.MAX_VALUE)
-        nextButton.setOnAction { event ->
-            Next()
-            println("New pressed")
-        }
 
         val deleteImageView = ImageView((Image("deleteicon.png")))
         deleteButton.graphic = (deleteImageView)
         deleteImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         deleteImageView.isPreserveRatio = true
         deleteButton.setMaxWidth(Double.MAX_VALUE)
-        deleteButton.setOnAction { event ->
-           // Delete()
-            println("New pressed")
-        }
 
         val renameImageView = ImageView((Image("renameicon.png")))
         renameButton.graphic = (renameImageView)
@@ -300,6 +395,30 @@ class Main : Application()  {
         homeButton.setOnAction { event ->
             tree= Home(home,layout)
             println("Home pressed")
+        }
+        next.setOnAction { event ->
+            tree = Next(tree, layout)
+            println("Next pressed")
+        }
+        nextButton.setOnAction { event ->
+            tree = Next(tree, layout)
+            println("Next Button pressed")
+        }
+        prevButton.setOnAction { event ->
+            tree = Previous(tree, layout)
+            println("Previous pressed")
+        }
+        prev.setOnAction { event ->
+            tree = Previous(tree, layout)
+            println("Previous pressed")
+        }
+        delete.setOnAction { event ->
+            tree = Delete(tree, layout)
+            println("Delete pressed")
+        }
+        deleteButton.setOnAction { event ->
+            tree = Delete(tree, layout)
+            println("New pressed")
         }
 
         // build the scene graph
