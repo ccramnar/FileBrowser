@@ -13,13 +13,14 @@ import javafx.scene.input.KeyCombination
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
+import javafx.scene.text.Text
+import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
-import java.awt.BorderLayout
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
-import java.lang.NullPointerException
-import java.nio.charset.Charset
+import java.nio.file.Files
+import java.nio.file.Paths
 
 
 class Main : Application()  {
@@ -37,18 +38,21 @@ class Main : Application()  {
             val selectedItem = tree.getSelectionModel().getSelectedItem();
             val index = tree.getSelectionModel().getSelectedIndex();
             if (selectedItem.endsWith(".txt") ||  selectedItem.endsWith(".md")) {
+                val textroot = ScrollPane()
                 println(selectedItem + ": is a file")
                 val file = File(curdir + selectedItem)
                 val path = curdir + selectedItem
                 val absolutePathTextLabel = Label(path)
                 layout.bottom = absolutePathTextLabel
                 println(path)
-                var content:String = file.readText()
-                val label = Label(content)
-                layout.center = label
+                var content = Text(file.readText())
+                textroot.setFitToHeight(true);
+                textroot.setContent(content);
+                layout.center = textroot
             }
             else if  ( selectedItem.endsWith(".png") || selectedItem.endsWith(".jpg") || selectedItem.endsWith(".bmp")) {
                 println(selectedItem + ": is a picture")
+                val picroot = ScrollPane()
                 val file = File(curdir + selectedItem)
                 val path = curdir + selectedItem
                 val absoluteImagePathLabel = Label(path)
@@ -63,7 +67,9 @@ class Main : Application()  {
                 imageView.y = 10.0
                 imageView.fitWidth = 200.0
                 imageView.isPreserveRatio = true
-                layout.center = imageView
+                picroot.setFitToHeight(true);
+                picroot.setContent(imageView);
+                layout.center = picroot
             }else {
                 println(selectedItem + ": is a directory")
                 val file = File(curdir + selectedItem)
@@ -83,15 +89,49 @@ class Main : Application()  {
         td.headerText = "Enter a new location"
         td.showAndWait()
         // the app will block here until the user enters a value
-        val result:String = td.editor.text
+        var result:String = td.editor.text
+        if(result == ".") {
+            //this means theyre moving it to the same direc it is in now\
+            return oldTree;
+        }
         val selectedItem = oldTree.getFocusModel().getFocusedItem()
         val file = File(curdir + selectedItem)
         var tree = ListView<String>()
+        if (result == "") {
+            val destPath = Paths.get(curdir +  selectedItem)
+            val srcPath = Paths.get(curdir + selectedItem)
+            val temp = Files.move(srcPath, destPath)
+            if(temp != null)
+            {println("File renamed and moved successfully");
+            }
+            else
+            {println("Failed to move the file");
+            }
+            tree = loadDirectory(layout)
+            return tree
+        }
         if (result.startsWith('/')) {
-
+            val destPath = Paths.get(home + result + selectedItem)
+            val srcPath = Paths.get(curdir + selectedItem)
+            val temp = Files.move(srcPath, destPath)
+            if(temp != null)
+            {println("File renamed and moved successfully");
+            }
+            else
+            {println("Failed to move the file");
+            }
+            tree = loadDirectory(layout)
+            return tree
         } else {
-            val f = File(curdir + result);
-            file.renameTo(f);
+            val destPath = Paths.get(curdir + result + selectedItem)
+            val srcPath = Paths.get(curdir + selectedItem)
+            val temp = Files.move(srcPath, destPath)
+            if(temp != null)
+            {println("File renamed and moved successfully");
+            }
+            else
+            {println("Failed to move the file");
+            }
             tree = loadDirectory(layout)
             return tree
         }
@@ -117,7 +157,7 @@ class Main : Application()  {
                         continue;
                     }
                 }
-                if (file.endsWith(".txt") ||  file.endsWith(".png") || file.endsWith(".jpg") ||  file.endsWith(".md") ||  f1.endsWith(".bmp")) {
+                if (file.endsWith(".txt") ||  file.endsWith(".png") || file.endsWith(".jpg") ||  file.endsWith(".md") ||  file.endsWith(".bmp") || file.startsWith('.')) {
                     tree.items.add(file)
                     println(file + ": is a file")
                 } else {
@@ -149,13 +189,14 @@ class Main : Application()  {
 
                 for (file in arr) {
                     val f1 = File(file)
-                    if (file.startsWith('.')) {
-                        continue;
+                    if (showHidden) {
+
+                    } else {
+                        if (file.startsWith('.')) {
+                            continue;
+                        }
                     }
-                    if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || f1.endsWith(
-                            ".bmp"
-                        )
-                    ) {
+                    if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || file.endsWith(".bmp") || file.startsWith('.')) {
                         tree.items.add(file)
                         println(file + ": is a file")
                     } else {
@@ -187,10 +228,9 @@ class Main : Application()  {
                                 continue;
                             }
                         }
-                        if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || f1.endsWith(
-                                ".bmp"
-                            )
-                        ) {
+                        if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md")
+                            || file.endsWith(".bmp") || file.startsWith('.'))
+                        {
                             tree.items.add(file)
                             println(file + ": is a file")
                         } else {
@@ -220,12 +260,15 @@ class Main : Application()  {
 
                     for (file in arr) {
                         val f1 = File(file)
-                        if (file.startsWith('.')) {
-                            continue;
+                        if (showHidden) {
+
+                        } else {
+                            if (file.startsWith('.')) {
+                                continue;
+                            }
                         }
-                        if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || f1.endsWith(
-                                ".bmp"
-                            )
+                        if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || file.endsWith(
+                                ".bmp") || file.startsWith('.')
                         ) {
                             tree.items.add(file)
                             println(file + ": is a file")
@@ -441,7 +484,7 @@ class Main : Application()  {
             println("Move pressed")
         }
         moveButton.setOnAction { event ->
-            tree = Rename(tree, layout)
+            tree = Move(tree, layout)
             println("Move pressed")
         }
         viewHidden.setOnAction { event ->
