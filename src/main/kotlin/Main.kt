@@ -24,13 +24,13 @@ import java.nio.charset.Charset
 
 class Main : Application()  {
     val home = "${System.getProperty("user.dir")}/test/"
+    //val home = "/"
     var curdir = home
+    var showHidden:Boolean = false;
 
-    private fun showHiddenFiles() {
-
-    }
-    private fun New() {
-
+    private fun showHiddenFiles(viewHidden:CheckMenuItem, layout: BorderPane): ListView<String> {
+        showHidden = viewHidden.isSelected()
+        return loadDirectory( layout)
     }
     private fun addListenersToTree(tree:ListView<String>, layout: BorderPane) {
         tree.getSelectionModel().selectedItemProperty().addListener{ ov,  old_val,  new_val ->
@@ -77,13 +77,26 @@ class Main : Application()  {
         }
 
     }
-    private fun Move() {
+    private fun Move(oldTree:ListView<String>, layout: BorderPane):ListView<String> {
         val td = TextInputDialog()
-        td.title = "Move to a new directory"
-        td.headerText = "Where do you want to move this file to?"
+        td.title = "Where do you want to move this file to"
+        td.headerText = "Enter a new location"
         td.showAndWait()
-// the app will block here until the user enters a value
-        val value:String = td.editor.text
+        // the app will block here until the user enters a value
+        val result:String = td.editor.text
+        val selectedItem = oldTree.getFocusModel().getFocusedItem()
+        val file = File(curdir + selectedItem)
+        var tree = ListView<String>()
+        if (result.startsWith('/')) {
+
+        } else {
+            val f = File(curdir + result);
+            file.renameTo(f);
+            tree = loadDirectory(layout)
+            return tree
+        }
+        return tree
+
     }
     private fun Home(home:String, layout: BorderPane):ListView<String> {
         var tree = ListView<String>()
@@ -97,8 +110,12 @@ class Main : Application()  {
 
             for (file in arr) {
                 val f1 = File(file)
-                if (file.startsWith('.')) {
-                    continue;
+                if (showHidden) {
+
+                } else {
+                    if (file.startsWith('.')) {
+                        continue;
+                    }
                 }
                 if (file.endsWith(".txt") ||  file.endsWith(".png") || file.endsWith(".jpg") ||  file.endsWith(".md") ||  f1.endsWith(".bmp")) {
                     tree.items.add(file)
@@ -163,8 +180,12 @@ class Main : Application()  {
 
                     for (file in arr) {
                         val f1 = File(file)
-                        if (file.startsWith('.')) {
-                            continue;
+                        if (showHidden) {
+
+                        } else {
+                            if (file.startsWith('.')) {
+                                continue;
+                            }
                         }
                         if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || f1.endsWith(
                                 ".bmp"
@@ -258,15 +279,21 @@ class Main : Application()  {
         }
         return tree
     }
-    private fun Rename(file:File) {
+    private fun Rename(oldTree:ListView<String>, layout: BorderPane):ListView<String> {
         val td = TextInputDialog()
         td.title = "Title"
         td.headerText = "Enter new value:"
         td.showAndWait()
         // the app will block here until the user enters a value
         val result:String = td.editor.text
-        val f = File(result);
+        val selectedItem = oldTree.getFocusModel().getFocusedItem()
+        val file = File(curdir +selectedItem)
+        val f = File(curdir + result);
         file.renameTo(f);
+        var tree = ListView<String>()
+        tree = loadDirectory(layout)
+        return tree
+
     }
     private fun Quit() {
         Platform.exit()
@@ -282,17 +309,9 @@ class Main : Application()  {
         val menuBar = MenuBar()
         //FILE
         val fileMenu = Menu("File")
-        val fileNew = MenuItem("New")
-        fileNew.accelerator = KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN)
         val fileQuit = MenuItem("Quit")
         fileQuit.accelerator = KeyCodeCombination(KeyCode.Q, KeyCombination.CONTROL_DOWN)
-        fileMenu.items.add(fileNew)
         fileMenu.items.add(fileQuit)
-        // handle default user action aka press
-        fileNew.setOnAction { event ->
-            New()
-            println("New pressed")
-        }
         fileQuit.setOnAction { event ->
             Quit()
             println("Quit pressed")
@@ -305,11 +324,6 @@ class Main : Application()  {
         actionsMenu.items.add(move)
         actionsMenu.items.add(delete)
         delete.accelerator = KeyCodeCombination(KeyCode.D, KeyCombination.CONTROL_DOWN)
-        // handle default user action aka press
-        move.setOnAction { event ->
-            Move()
-            println("Move pressed")
-        }
 
         //VIEW
         val viewMenu = Menu("View")
@@ -325,11 +339,6 @@ class Main : Application()  {
         val viewHidden = CheckMenuItem("Show Hidden Files")
         viewHidden.setSelected(false)
         optionsMenu.items.add(viewHidden)
-        // handle default user action aka press
-        viewHidden.setOnAction { event ->
-            showHiddenFiles()
-            println("View Hidden clicked")
-        }
 
         menuBar.menus.add(fileMenu)
         menuBar.menus.add(viewMenu)
@@ -342,6 +351,7 @@ class Main : Application()  {
         val nextButton = Button("Next")
         val deleteButton = Button("Delete")
         val renameButton = Button("Rename")
+        val moveButton = Button("Move")
 
         val homeImageView = ImageView((Image("homeicon.png")))
         homeButton.graphic = (homeImageView)
@@ -374,13 +384,15 @@ class Main : Application()  {
         renameImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
         renameImageView.isPreserveRatio = true
         renameButton.setMaxWidth(Double.MAX_VALUE)
-        renameButton.setOnAction { event ->
-            //Rename()
-            println("New pressed")
-        }
+
+        val moveImageView = ImageView((Image("moveicon.png")))
+        moveButton.graphic = (moveImageView)
+        moveImageView.fitWidthProperty().bind(homeButton.widthProperty().divide(5))
+        moveImageView.isPreserveRatio = true
+        moveButton.setMaxWidth(Double.MAX_VALUE)
 
         val hbox = HBox()
-        hbox.children.addAll(homeButton, prevButton, nextButton, deleteButton, renameButton)
+        hbox.children.addAll(homeButton, prevButton, nextButton, deleteButton, renameButton, moveButton)
         hbox.setSpacing(10.0);
         hbox.padding = Insets(10.0, 10.0, 10.0, 10.0)
 
@@ -418,7 +430,23 @@ class Main : Application()  {
         }
         deleteButton.setOnAction { event ->
             tree = Delete(tree, layout)
-            println("New pressed")
+            println("Delete pressed")
+        }
+        renameButton.setOnAction { event ->
+            tree = Rename(tree, layout)
+            println("Rename pressed")
+        }
+        move.setOnAction { event ->
+            tree = Move(tree, layout)
+            println("Move pressed")
+        }
+        moveButton.setOnAction { event ->
+            tree = Rename(tree, layout)
+            println("Move pressed")
+        }
+        viewHidden.setOnAction { event ->
+            tree = showHiddenFiles(viewHidden,layout)
+            println("View Hidden clicked")
         }
 
         // build the scene graph
