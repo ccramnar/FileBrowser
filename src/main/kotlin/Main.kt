@@ -1,6 +1,7 @@
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.collections.FXCollections
+import javafx.event.EventHandler
 import javafx.geometry.Insets
 import javafx.scene.Scene
 import javafx.scene.control.*
@@ -14,17 +15,17 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.scene.text.Text
-import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
+import java.lang.Exception
 import java.nio.file.Files
 import java.nio.file.Paths
 
 
 class Main : Application()  {
-    val home = "${System.getProperty("user.dir")}/test/"
+    val home = ("${System.getProperty("user.dir")}/test/").replace('\\','/')
     //val home = "/"
     var curdir = home
     var showHidden:Boolean = false;
@@ -84,58 +85,63 @@ class Main : Application()  {
 
     }
     private fun Move(oldTree:ListView<String>, layout: BorderPane):ListView<String> {
-        val td = TextInputDialog()
-        td.title = "Where do you want to move this file to"
-        td.headerText = "Enter a new location"
-        td.showAndWait()
-        // the app will block here until the user enters a value
-        var result:String = td.editor.text
-        if(result == ".") {
-            //this means theyre moving it to the same direc it is in now\
-            return oldTree;
-        }
-        val selectedItem = oldTree.getFocusModel().getFocusedItem()
-        val file = File(curdir + selectedItem)
-        var tree = ListView<String>()
-        if (result == "") {
-            val destPath = Paths.get(curdir +  selectedItem)
-            val srcPath = Paths.get(curdir + selectedItem)
-            val temp = Files.move(srcPath, destPath)
-            if(temp != null)
-            {println("File renamed and moved successfully");
+        try {
+            val td = TextInputDialog()
+            td.title = "Where do you want to move this file to"
+            td.headerText = "Enter a new location"
+            td.showAndWait()
+            // the app will block here until the user enters a value
+            var result: String = td.editor.text
+            if (result == ".") {
+                //this means theyre moving it to the same direc it is in now\
+                return oldTree;
             }
-            else
-            {println("Failed to move the file");
+            val selectedItem = oldTree.getFocusModel().getFocusedItem()
+            val file = File(curdir + selectedItem)
+            var tree = ListView<String>()
+            if (result == "") {
+                val destPath = Paths.get(curdir + selectedItem)
+                val srcPath = Paths.get(curdir + selectedItem)
+                val temp = Files.move(srcPath, destPath)
+                if (temp != null) {
+                    println("File renamed and moved successfully");
+                } else {
+                    println("Failed to move the file");
+                }
+                tree = loadDirectory(layout)
+                return tree
             }
-            tree = loadDirectory(layout)
+            if (result.startsWith('/')) {
+                val destPath = Paths.get(home + result + selectedItem)
+                val srcPath = Paths.get(curdir + selectedItem)
+                val temp = Files.move(srcPath, destPath)
+                if (temp != null) {
+                    println("File renamed and moved successfully");
+                } else {
+                    println("Failed to move the file");
+                }
+                tree = loadDirectory(layout)
+                return tree
+            } else {
+                val destPath = Paths.get(curdir + result + selectedItem)
+                val srcPath = Paths.get(curdir + selectedItem)
+                val temp = Files.move(srcPath, destPath)
+                if (temp != null) {
+                    println("File renamed and moved successfully");
+                } else {
+                    println("Failed to move the file");
+                }
+                tree = loadDirectory(layout)
+                return tree
+            }
             return tree
+        }catch (e:Exception) {
+            val alert = Alert(AlertType.CONFIRMATION)
+            alert.title = "Move Error"
+            alert.headerText = "Moving file was not successful"
+            alert.showAndWait()
+            return oldTree
         }
-        if (result.startsWith('/')) {
-            val destPath = Paths.get(home + result + selectedItem)
-            val srcPath = Paths.get(curdir + selectedItem)
-            val temp = Files.move(srcPath, destPath)
-            if(temp != null)
-            {println("File renamed and moved successfully");
-            }
-            else
-            {println("Failed to move the file");
-            }
-            tree = loadDirectory(layout)
-            return tree
-        } else {
-            val destPath = Paths.get(curdir + result + selectedItem)
-            val srcPath = Paths.get(curdir + selectedItem)
-            val temp = Files.move(srcPath, destPath)
-            if(temp != null)
-            {println("File renamed and moved successfully");
-            }
-            else
-            {println("Failed to move the file");
-            }
-            tree = loadDirectory(layout)
-            return tree
-        }
-        return tree
 
     }
     private fun Home(home:String, layout: BorderPane):ListView<String> {
@@ -157,7 +163,10 @@ class Main : Application()  {
                         continue;
                     }
                 }
-                if (file.endsWith(".txt") ||  file.endsWith(".png") || file.endsWith(".jpg") ||  file.endsWith(".md") ||  file.endsWith(".bmp") || file.startsWith('.')) {
+                if (file.endsWith(".txt") ||  file.endsWith(".png") || file.endsWith(".jpg") ||  file.endsWith(".md") ||  file.endsWith(".bmp") || file.startsWith('.')  || file.endsWith(".bad")) {
+                    if (file.endsWith(".bad")) {
+                        file.replace(".bad", "" )
+                    }
                     tree.items.add(file)
                     println(file + ": is a file")
                 } else {
@@ -169,9 +178,17 @@ class Main : Application()  {
         addListenersToTree(tree, layout)
         curdir = home
         layout.left = tree
+        tree.setOnMouseClicked {
+            println(it.clickCount) // 2 on double click, 1 on single click
+            if (it.clickCount == 2) {
+                tree = Next(tree, layout)
+                println("Next Double Click pressed")
+            }
+        }
         return tree;
     }
     private fun Previous(oldTree:ListView<String>, layout: BorderPane):ListView<String> {
+        try {
         val selectedItem = oldTree.getFocusModel().getFocusedItem()
         println(selectedItem)
         var tree = ListView<String>()
@@ -196,7 +213,10 @@ class Main : Application()  {
                             continue;
                         }
                     }
-                    if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || file.endsWith(".bmp") || file.startsWith('.')) {
+                    if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || file.endsWith(".bmp") || file.startsWith('.') || file.endsWith(".bad")) {
+                        if (file.endsWith(".bad")) {
+                            file.replace(".bad", "" )
+                        }
                         tree.items.add(file)
                         println(file + ": is a file")
                     } else {
@@ -207,7 +227,21 @@ class Main : Application()  {
                 addListenersToTree(tree, layout)
             }
         layout.left = tree
-        return tree;
+        tree.setOnMouseClicked {
+            println(it.clickCount) // 2 on double click, 1 on single click
+            if (it.clickCount == 2) {
+                tree = Next(tree, layout)
+                println("Next Double Click pressed")
+            }
+        }
+        return tree;}
+        catch (e:Exception) {
+        val alert = Alert(AlertType.CONFIRMATION)
+        alert.title = "Previous Error"
+        alert.headerText = "Going back was not successful"
+        alert.showAndWait()
+        return oldTree
+    }
     }
 
     private fun loadDirectory( layout: BorderPane):ListView<String>{
@@ -229,10 +263,15 @@ class Main : Application()  {
                             }
                         }
                         if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md")
-                            || file.endsWith(".bmp") || file.startsWith('.'))
+                            || file.endsWith(".bmp") || file.startsWith('.') || file.endsWith(' ') || file.endsWith(".bad"))
                         {
+                            if (file.endsWith(".bad")) {
+                                println("LOAD HERE")
+                                file.replace(".bad", "" )
+                                println(file)
+                            }
                             tree.items.add(file)
-                            println(file + ": is a file")
+                            println(file + ": is a file <= LOAD")
                         } else {
                             tree.items.add(file + '/')
                             println(file + ": is a directory")
@@ -241,6 +280,13 @@ class Main : Application()  {
                     addListenersToTree(tree, layout)
                 }
         layout.left = tree
+        tree.setOnMouseClicked {
+            println(it.clickCount) // 2 on double click, 1 on single click
+            if (it.clickCount == 2) {
+                tree = Next(tree, layout)
+                println("Next Double Click pressed")
+            }
+        }
         return tree;
     }
 
@@ -248,6 +294,7 @@ class Main : Application()  {
             val selectedItem = oldTree.getFocusModel().getFocusedItem()
             println(selectedItem)
             var tree = ListView<String>()
+            try {
             if (selectedItem.endsWith('/')) {
                 curdir = curdir + selectedItem
                 println("path " + curdir)
@@ -268,8 +315,12 @@ class Main : Application()  {
                             }
                         }
                         if (file.endsWith(".txt") || file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".md") || file.endsWith(
-                                ".bmp") || file.startsWith('.')
+                                ".bmp") || file.startsWith('.') || file.endsWith(".bad")
                         ) {
+                            if (file.endsWith(".bad")) {
+                                println("HERE")
+                                file.replace(".bad", "" )
+                            }
                             tree.items.add(file)
                             println(file + ": is a file")
                         } else {
@@ -280,10 +331,26 @@ class Main : Application()  {
                     addListenersToTree(tree, layout)
                 }
             }else {
-                throw Exception("This is not a directory")
+                val alert = Alert(AlertType.CONFIRMATION)
+                alert.title = "This is not a directory, you cannot enter it"
+                 alert.showAndWait()
+                return oldTree
             }
         layout.left = tree
-        return tree;
+        tree.setOnMouseClicked {
+            println(it.clickCount) // 2 on double click, 1 on single click
+            if (it.clickCount == 2) {
+                tree = Next(tree, layout)
+                println("Next Double Click pressed")
+            }
+        }
+        return tree;} catch (e: Exception) {
+            val alert = Alert(AlertType.CONFIRMATION)
+                alert.title = "This is not a directory, you cannot enter it"
+                alert.showAndWait()
+                return oldTree
+            return oldTree
+        }
     }
     private fun Delete(oldTree: ListView<String>, layout: BorderPane):ListView<String> {
         val alert = Alert(AlertType.CONFIRMATION)
@@ -293,32 +360,47 @@ class Main : Application()  {
         val result = alert.showAndWait()
         var tree = ListView<String>()
         if (result.get() == ButtonType.OK) {
-            val selectedItem = oldTree.getFocusModel().getFocusedItem()
-            if (selectedItem.endsWith('/')) {
-                val file = File(curdir + selectedItem)
-                println("path of directory to delete: " + curdir + selectedItem)
-                val value = file.deleteRecursively();
-                if (value) {
-                    tree = loadDirectory(layout)
-                    println("The Directory is deleted.");
-                    layout.center = Label()
+            try {
+                val selectedItem = oldTree.getFocusModel().getFocusedItem()
+                if (selectedItem.endsWith('/')) {
+                    val file = File(curdir + selectedItem)
+                    println("path of directory to delete: " + curdir + selectedItem)
+                    val value = file.deleteRecursively();
+                    if (value) {
+                        tree = loadDirectory(layout)
+                        println("The Directory is deleted.");
+                        layout.center = Label()
+                    } else {
+                        println("The Directory is not deleted.");
+                    }
                 } else {
-                    println("The Directory is not deleted.");
+                    val file = File(curdir + selectedItem)
+                    println("path of file to delete: " + curdir + selectedItem)
+                    val value = file.delete();
+                    if (value) {
+                        tree = loadDirectory(layout)
+                        println("The File is deleted.");
+                        layout.center = Label()
+                    } else {
+                        println("The File is not deleted.");
+                    }
                 }
-            } else {
-                val file = File(curdir + selectedItem)
-                println("path of file to delete: " + curdir + selectedItem)
-                val value = file.delete();
-                if (value) {
-                    tree = loadDirectory(layout)
-                    println("The File is deleted.");
-                    layout.center = Label()
-                } else {
-                    println("The File is not deleted.");
-                }
+            }catch (e:Exception) {
+                val alert = Alert(AlertType.CONFIRMATION)
+                alert.title = "Deletion Error"
+                alert.headerText = "Deletion of file was not successful"
+                alert.showAndWait()
+                return oldTree
             }
         } else {
-            // ... user chose CANCEL or closed the dialog
+            return oldTree
+        }
+        tree.setOnMouseClicked {
+            println(it.clickCount) // 2 on double click, 1 on single click
+            if (it.clickCount == 2) {
+                tree = Next(tree, layout)
+                println("Next Double Click pressed")
+            }
         }
         return tree
     }
@@ -329,13 +411,29 @@ class Main : Application()  {
         td.showAndWait()
         // the app will block here until the user enters a value
         val result:String = td.editor.text
-        val selectedItem = oldTree.getFocusModel().getFocusedItem()
-        val file = File(curdir +selectedItem)
-        val f = File(curdir + result);
-        file.renameTo(f);
-        var tree = ListView<String>()
-        tree = loadDirectory(layout)
-        return tree
+        try {
+            if ('.' in result) {
+                val selectedItem = oldTree.getFocusModel().getFocusedItem()
+                val file = File(curdir + selectedItem)
+                val f = File(curdir + result);
+                file.renameTo(f);
+            } else {
+                val selectedItem = oldTree.getFocusModel().getFocusedItem()
+                val file = File(curdir + selectedItem)
+                val f = File(curdir + result);
+                //val f = File(curdir + result + ".bad");
+                file.renameTo(f);
+            }
+            var tree = ListView<String>()
+            tree = loadDirectory(layout)
+            return tree
+        }  catch (e:Exception) {
+        val alert = Alert(AlertType.CONFIRMATION)
+        alert.title = "Rename Error"
+        alert.headerText = "Renaming of file was not successful"
+        alert.showAndWait()
+        return oldTree
+    }
 
     }
     private fun Quit() {
@@ -371,9 +469,9 @@ class Main : Application()  {
         //VIEW
         val viewMenu = Menu("View")
         val prev = MenuItem("Previous")
-        prev.accelerator = KeyCodeCombination(KeyCode.LEFT, KeyCombination.CONTROL_DOWN)
+        prev.accelerator = KeyCodeCombination(KeyCode.BACK_SPACE)
         val next = MenuItem("Next")
-        next.accelerator = KeyCodeCombination(KeyCode.RIGHT, KeyCombination.CONTROL_DOWN)
+        next.accelerator = KeyCodeCombination(KeyCode.ENTER)
         viewMenu.items.add(prev)
         viewMenu.items.add(next)
 
@@ -497,6 +595,15 @@ class Main : Application()  {
         //layout.center = label
         layout.left = tree
         //layout.bottom = absolutepath
+
+        tree.setOnMouseClicked {
+            println(it.clickCount) // 2 on double click, 1 on single click
+            if (it.clickCount == 2) {
+                tree = Next(tree, layout)
+                println("Next Double Click pressed")
+            }
+        }
+
 
         // create and show the scene
         val scene = Scene(layout)
